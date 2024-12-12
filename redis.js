@@ -1,62 +1,52 @@
 import { createClient } from 'redis';
 import { promisify } from 'util';
 
-// Class to interact with Redis server
 class RedisClient {
   constructor() {
-    // Initialize Redis client
-    this.redisConnection = createClient();
-    this.redisConnection.on('error', err => {
-      console.error(`Unable to connect to Redis server: ${err.message}`);
+    this.client = createClient();
+
+    this.client.on('error', error => {
+      console.error('Redis Client Error:', error);
     });
   }
 
-  // Method to check if Redis connection is active
-  isAlive() {
-    return this.redisConnection.connected;
+  async isAlive() {
+    try {
+      await this.client.connect();
+      return true;
+    } catch (error) {
+      console.error('Redis Connection Error:', error);
+      return false;
+    }
   }
 
-  // Asynchronous method to fetch the value of a given key
-  async fetchValue(key) {
-    const getAsync = promisify(this.redisConnection.get).bind(
-      this.redisConnection
-    );
+  async get(key) {
     try {
-      return await getAsync(key);
-    } catch (err) {
-      console.error(`Error fetching key "${key}": ${err.message}`);
+      const result = await this.client.get(key);
+      return result;
+    } catch (error) {
+      console.error('Redis Get Error:', error);
       return null;
     }
   }
 
-  // Asynchronous method to store a key-value pair with expiration time
-  async storeValue(key, value, ttlInSeconds) {
-    const setAsync = promisify(this.redisConnection.set).bind(
-      this.redisConnection
-    );
+  async set(key, value, expiration) {
     try {
-      await setAsync(key, value);
-      await this.redisConnection.expire(key, ttlInSeconds);
-    } catch (err) {
-      console.error(
-        `Error storing key "${key}" with value "${value}": ${err.message}`
-      );
+      await this.client.set(key, value, { EX: expiration });
+    } catch (error) {
+      console.error('Redis Set Error:', error);
     }
   }
 
-  // Asynchronous method to delete a key from Redis
-  async removeValue(key) {
-    const delAsync = promisify(this.redisConnection.del).bind(
-      this.redisConnection
-    );
+  async del(key) {
     try {
-      await delAsync(key);
-    } catch (err) {
-      console.error(`Error deleting key "${key}": ${err.message}`);
+      await this.client.del(key);
+    } catch (error) {
+      console.error('Redis Delete Error:', error);
     }
   }
 }
 
-// Exporting an instance of RedisClient
-const redisUtility = new RedisClient();
-export default redisUtility;
+const redisClient = new RedisClient();
+
+module.exports = redisClient;
